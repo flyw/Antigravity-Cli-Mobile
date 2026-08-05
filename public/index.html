@@ -1452,7 +1452,7 @@
 
             // Handle Enter key for submit (Shift+Enter for newline)
             messageInput.onkeydown = (e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
+                if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
                     e.preventDefault();
                     if (typeof inputForm.requestSubmit === 'function') {
                         inputForm.requestSubmit();
