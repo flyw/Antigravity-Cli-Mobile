@@ -986,6 +986,8 @@
         let agentTerminals = {}; // agentId -> Terminal instance
         let shortcutsData = [];
         let socket;
+        let terminalResizeObserver;
+        let terminalResizeFrame = null;
 
         function renderShortcuts() {
             const controlsRow = document.getElementById('controls-row');
@@ -1315,6 +1317,38 @@
                 }
             }
 
+            function scheduleTerminalResize() {
+                if (terminalResizeFrame !== null) return;
+
+                terminalResizeFrame = requestAnimationFrame(() => {
+                    terminalResizeFrame = null;
+
+                    if (!selectedAgentId || !agentTerminals[selectedAgentId]) return;
+
+                    const { fitAddon } = agentTerminals[selectedAgentId];
+                    fitAddon.fit();
+                    syncResize(selectedAgentId);
+                });
+            }
+
+            function observeTerminalResize() {
+                if (terminalResizeObserver) return;
+
+                const chatContainer = document.getElementById('chat-container');
+                if (!chatContainer || typeof ResizeObserver === 'undefined') return;
+
+                terminalResizeObserver = new ResizeObserver(() => {
+                    scheduleTerminalResize();
+                });
+                terminalResizeObserver.observe(chatContainer);
+
+                // Some mobile browsers update the visual viewport without
+                // dispatching a regular window resize event.
+                if (window.visualViewport) {
+                    window.visualViewport.addEventListener('resize', scheduleTerminalResize);
+                }
+            }
+
             socket.on('output_stream', (payload) => {
                 const { agentId, data } = payload;
                 const { term } = getOrCreateTerminal(agentId, socket);
@@ -1330,12 +1364,7 @@
             });
 
             // Handle window resize
-            window.addEventListener('resize', () => {
-                if (selectedAgentId && agentTerminals[selectedAgentId]) {
-                    agentTerminals[selectedAgentId].fitAddon.fit();
-                    syncResize(selectedAgentId);
-                }
-            });
+            window.addEventListener('resize', scheduleTerminalResize);
 
             function renderAgentList() {
                 agentListEl.innerHTML = '';
@@ -1369,6 +1398,8 @@
                 term.open(termContainer);
                 fitAddon.fit();
                 term.focus();
+
+                observeTerminalResize();
 
                 // Initialize container listeners once
                 initTerminalContainer();
