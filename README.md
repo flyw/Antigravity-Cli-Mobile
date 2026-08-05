@@ -1,8 +1,8 @@
-# Agy Mobile 🌉
+# Agent CLI Mobile 🌉
 
 <img src="./demo.png" width="512" alt="Demo">
 
-Agy Mobile is a proxy system that converts local interactive CLI tools (like Antigravity CLI) into a mobile-friendly web chat interface.
+Agent CLI Mobile is a proxy system that converts local interactive CLI tools (like Antigravity CLI) into a mobile-friendly web chat interface.
 
 It allows you to run CLI tools on a local machine (e.g., behind a NAT) and interact with them from anywhere via a web browser, presented as a chat conversation.
 
@@ -32,7 +32,7 @@ It allows you to run CLI tools on a local machine (e.g., behind a NAT) and inter
 ### 1. Installation
 
 **Prerequisite: tmux & Clipboard tools**
-Agy Mobile requires `tmux`. For remote clipboard sync (image upload feature), `xclip` or `wl-copy` is recommended on the Agent machine.
+Agent CLI Mobile requires `tmux`. For remote clipboard sync (image upload feature), `xclip` or `wl-copy` is recommended on the Agent machine.
 ```bash
 # Ubuntu/Debian
 sudo apt-get install tmux xclip
@@ -43,8 +43,8 @@ brew install tmux
 
 **Installation**
 ```bash
-git clone https://github.com/youruser/agy-mobile.git
-cd agy-mobile
+git clone https://github.com/youruser/Agent-Cli-Mobile.git
+cd Agent-Cli-Mobile
 npm install
 npm run build
 npm link
@@ -55,21 +55,21 @@ npm link
 #### Server Setup (Relay)
 On your public server, generate and apply a secure token:
 ```bash
-agy-mobile relay gen-token
+agent-cli-mobile relay gen-token
 ```
 
 ### 3. Start Relay
 
 On your public server:
 ```bash
-agy-mobile relay start
+agent-cli-mobile relay start
 ```
 
 ### 4. Start Agent
 
 On your local machine, simply run:
 ```bash
-agy-mobile
+agent-cli-mobile
 ```
 (Or `npm run start` if not linked)
 
@@ -77,7 +77,7 @@ agy-mobile
 
 This process will:
 1. **Auto-Configure**: Prompt for Relay URL and Token if missing.
-2. **Tmux Integration**: Create or attach to a tmux session named `agy-mobile`.
+2. **Tmux Integration**: Create or attach to a tmux session named `agy-mobile` (kept for compatibility).
 3. **Session Management**: Automatically handle persistent IDs and take over stale processes.
 4. **Cloud Bridge**: Securely stream your session to the Relay.
 

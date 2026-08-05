@@ -1,13 +1,13 @@
-这是一份为您量身定制的 **Agy Mobile** 项目完整开发文档。它涵盖了从架构设计到具体实现的全部核心环节。
+这是一份为您量身定制的 **Agent CLI Mobile** 项目完整开发文档。它涵盖了从架构设计到具体实现的全部核心环节。
 
 ---
 
-# 🌉 Agy Mobile 开发文档
+# 🌉 Agent CLI Mobile 开发文档
 
-**Agy Mobile** 是一个将本地交互式命令行工具（如 Antigravity CLI）转换为移动端 Web 聊天界面的中转代理系统。
+**Agent CLI Mobile** 是一个将本地交互式命令行工具（如 Antigravity CLI）转换为移动端 Web 聊天界面的中转代理系统。
 
 ## 1. 项目简介
-Agy Mobile 允许用户在内网机器上运行 CLI 工具，通过云端中转，在任何地方通过浏览器以“对话框”的形式进行实时交互。它通过 PTY（伪终端）技术保证了命令的持续运行与实时输出截获。
+Agent CLI Mobile 允许用户在内网机器上运行 CLI 工具，通过云端中转，在任何地方通过浏览器以“对话框”的形式进行实时交互。它通过 PTY（伪终端）技术保证了命令的持续运行与实时输出截获。
 
 ## 2. 核心架构
 项目采用 **单代码库 (Monorepo-style)** 设计，通过启动参数切换身份：
@@ -56,12 +56,12 @@ agent:
 
 ### 5.1 服务端 (Relay) 启动
 ```bash
-node dist/index.js --mode relay --config ./agy-mobile.yaml
+agent-cli-mobile relay start
 ```
 
 ### 5.2 客户端 (Agent) 启动
 ```bash
-node dist/index.js --mode agent --config ./agy-mobile.yaml
+agent-cli-mobile agent start
 ```
 
 ---

@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <title>Agy Mobile - CLI to Chat</title>
+    <title>Agent CLI Mobile - CLI to Chat</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
     <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
@@ -653,7 +653,7 @@
     <!-- Authentication Screen -->
     <div id="auth-screen">
         <div class="auth-card" id="login-card">
-            <h2 id="auth-title">Login to Agy Mobile</h2>
+            <h2 id="auth-title">Login to Agent CLI Mobile</h2>
             <p id="auth-desc">Please enter your credentials.</p>
             <input type="text" id="username" placeholder="Username">
             
@@ -680,7 +680,7 @@
     <div id="chat-screen">
         <div id="sidebar">
             <div id="sidebar-close">×</div>
-            <h1>Agy Mobile</h1>
+            <h1>Agent CLI Mobile</h1>
             
             <div class="sidebar-section">Active Agents</div>
             <div id="agent-list">
@@ -1189,7 +1189,7 @@
                 const data = await res.json();
                 isSetup = data.needsSetup;
                 if (isSetup) {
-                    authTitle.textContent = 'Setup Agy Mobile';
+                    authTitle.textContent = 'Setup Agent CLI Mobile';
                     authDesc.textContent = 'Set your admin credentials to begin.';
                     setupOnly.style.display = 'block';
                     authSubmit.textContent = 'Complete Setup';

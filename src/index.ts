@@ -15,7 +15,7 @@ const startAgentWithSetup = async (customArgs: string[] = []) => {
   
   // Check if it's the first time (default 0.0.0.0 URL or missing token)
   if (config.agent.serverUrl.includes('0.0.0.0') || !config.token) {
-    console.log('👋 Welcome to Agy Mobile! It looks like this is your first time or the agent is not configured.');
+    console.log('👋 Welcome to Agent CLI Mobile! It looks like this is your first time or the agent is not configured.');
     console.log('Let\'s set up your connection to the Relay server.\n');
     await runAgentSetup();
     // Reload config after setup
@@ -76,8 +76,8 @@ if (!firstArg || (!knownSubcommands.includes(firstArg) && !firstArg.startsWith('
   const program = new Command();
 
   program
-    .name('agy-mobile')
-    .description('Agy Mobile: Local CLI to Web Chat interface')
+    .name('agent-cli-mobile')
+    .description('Agent CLI Mobile: Local CLI to Web Chat interface')
     .version('1.0.0');
 
   // Relay Commands
@@ -99,7 +99,7 @@ if (!firstArg || (!knownSubcommands.includes(firstArg) && !firstArg.startsWith('
       updateEnv({ BRIDGE_TOKEN: token });
       console.log('✅ New Secure Token Generated and Applied:');
       console.log(token);
-      console.log('\nUse this token when running "agy-mobile agent setup" on your client machine.');
+      console.log('\nUse this token when running "agent-cli-mobile agent setup" on your client machine.');
     });
 
   // Agent Commands

@@ -183,7 +183,7 @@ export const runAgent = (config: Config, command: string, args: string[], sessio
   socket.on('connect_error', (err) => {
     console.error(`\n❌ Connection error: ${err.message}`);
     console.error(`   Check if your Relay server is running at ${config.agent.serverUrl}`);
-    console.error('   Hint: Run "agy-mobile agent setup" to update the server URL.\n');
+    console.error('   Hint: Run "agent-cli-mobile agent setup" to update the server URL.\n');
   });
 
   ptyProcess.onData((data) => {
