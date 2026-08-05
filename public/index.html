@@ -6,9 +6,9 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>Agent CLI Mobile - CLI to Chat</title>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/css/xterm.css">
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/xterm@6.0.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@xterm/addon-fit@0.11.0/lib/addon-fit.js"></script>
     <style>
         :root {
             --bg-color: #f0f2f5;
@@ -1374,6 +1374,25 @@
             const fitAddon = new FitAddon.FitAddon();
             term.loadAddon(fitAddon);
 
+            // xterm 6 exposes a supported wheel interception hook. Consume
+            // wheel input here so mouse-reporting applications cannot turn it
+            // into shell history navigation.
+            term.attachCustomWheelEventHandler((event) => {
+                const viewport = term.element?.querySelector('.xterm-viewport');
+                if (!viewport) return false;
+
+                const lineHeight = 18;
+                const deltaY = event.deltaMode === 1
+                    ? event.deltaY * lineHeight
+                    : event.deltaMode === 2
+                        ? event.deltaY * term.rows * lineHeight
+                        : event.deltaY;
+
+                event.preventDefault();
+                viewport.scrollTop += deltaY;
+                return false;
+            });
+
             if (socket) {
                 term.onData(data => {
                     socket.emit('input_cmd', { agentId, cmd: data });
@@ -1400,22 +1419,6 @@
             const terminalElement = term?.element;
             const viewport = terminalElement?.querySelector('.xterm-viewport');
             if (!terminalElement || !viewport || terminalElement.hasTouchScrollListener) return;
-
-            // xterm 5.x does not expose attachCustomWheelEventHandler in the
-            // CDN build used by this page. Capture wheel events at the root so
-            // they cannot reach the hidden input element or the PTY.
-            terminalElement.addEventListener('wheel', (e) => {
-                const lineHeight = 18;
-                const deltaY = e.deltaMode === 1
-                    ? e.deltaY * lineHeight
-                    : e.deltaMode === 2
-                        ? e.deltaY * term.rows * lineHeight
-                        : e.deltaY;
-
-                e.preventDefault();
-                e.stopPropagation();
-                viewport.scrollTop += deltaY;
-            }, { capture: true, passive: false });
 
             let touchLastY = 0;
 
