@@ -27,7 +27,7 @@ Agent CLI Mobile 允许用户在内网机器上运行 CLI 工具，通过云端�
 
 ---
 
-## 4. 配置文件结构 (`agy-mobile.yaml`)
+## 4. 配置文件结构 (`agent-cli-mobile.yaml`)
 项目默认读取根目录下的配置文件：
 
 ```yaml
@@ -96,7 +96,7 @@ import { loadConfig } from './utils/config';
 const program = new Command();
 program
   .option('-m, --mode <mode>', 'relay or agent')
-  .option('-c, --config <path>', 'config file path', 'agy-mobile.yaml')
+  .option('-c, --config <path>', 'config file path', 'agent-cli-mobile.yaml')
   .action(async (options) => {
     const config = loadConfig(options.config);
     if (options.mode === 'relay') runRelay(config);

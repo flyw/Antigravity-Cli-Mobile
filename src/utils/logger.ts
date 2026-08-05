@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const LOG_DIR = path.join(os.homedir(), '.agy-mobile', 'logs');
+const LOG_DIR = path.join(os.homedir(), '.agent-cli-mobile', 'logs');
 const LOG_FILE = path.join(LOG_DIR, 'agent.log');
 
 if (!fs.existsSync(LOG_DIR)) {

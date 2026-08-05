@@ -52,7 +52,7 @@ export const runAgent = (config: Config, command: string, args: string[], sessio
     ? crypto.createHash('md5').update(`${os.hostname()}-${sessionName}`).digest('hex')
     : crypto.randomUUID();
   
-  const pidFile = path.join(os.tmpdir(), `agy-mobile-agent-${agentId}.pid`);
+  const pidFile = path.join(os.tmpdir(), `agent-cli-mobile-agent-${agentId}.pid`);
 
   // Takeover logic: if an agent is already running with this ID, kill it
   if (fs.existsSync(pidFile)) {

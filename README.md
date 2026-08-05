@@ -77,7 +77,7 @@ agent-cli-mobile
 
 This process will:
 1. **Auto-Configure**: Prompt for Relay URL and Token if missing.
-2. **Tmux Integration**: Create or attach to a tmux session named `agy-mobile` (kept for compatibility).
+2. **Tmux Integration**: Create or attach to a tmux session named `agent-cli-mobile`.
 3. **Session Management**: Automatically handle persistent IDs and take over stale processes.
 4. **Cloud Bridge**: Securely stream your session to the Relay.
 

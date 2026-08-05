@@ -22,11 +22,11 @@ const startAgentWithSetup = async (customArgs: string[] = []) => {
     config = getConfig();
   }
 
-  const tmuxArgs = ['new-session', '-A', '-s', 'agy-mobile'];
+  const tmuxArgs = ['new-session', '-A', '-s', 'agent-cli-mobile'];
   if (customArgs.length > 0) {
     tmuxArgs.push(...customArgs);
   }
-  runAgent(config, 'tmux', tmuxArgs, 'agy-mobile');
+  runAgent(config, 'tmux', tmuxArgs, 'agent-cli-mobile');
 };
 
 const runAgentSetup = async () => {

@@ -2,7 +2,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
 
-const CONFIG_DIR = path.join(os.homedir(), '.agy-mobile');
+const CONFIG_DIR = path.join(os.homedir(), '.agent-cli-mobile');
 const ENV_PATH = path.join(CONFIG_DIR, '.env');
 
 export const getEnvPath = () => ENV_PATH;
