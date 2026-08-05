@@ -1362,7 +1362,9 @@
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
             cursorBlink: true,
             allowProposedApi: true,
-            scrollSensitivity: 1.2
+            scrollback: 10000,
+            scrollSensitivity: 1,
+            scrollOnUserInput: false
         };
 
         function getOrCreateTerminal(agentId, socket) {
@@ -1382,16 +1384,21 @@
             return agentTerminals[agentId];
         }
 
-        // Global touch scroll state
-        let touchStartY = 0;
+        // Touch scroll state. Keep the fractional row distance so small
+        // finger movements are accumulated instead of being discarded.
+        let touchLastY = 0;
+        let touchRemainder = 0;
 
         function initTerminalContainer() {
             const termContainer = document.getElementById('terminal-container');
             if (termContainer.hasTouchListeners) return;
             
             termContainer.addEventListener('touchstart', (e) => {
-                touchStartY = e.touches[0].clientY;
-                // Focus the terminal on touch to ensure it receives wheel events
+                touchLastY = e.touches[0].clientY;
+                touchRemainder = 0;
+
+                // Focus the terminal so keyboard input continues to work after
+                // a touch interaction.
                 if (selectedAgentId && agentTerminals[selectedAgentId]) {
                     agentTerminals[selectedAgentId].term.focus();
                 }
@@ -1402,29 +1409,30 @@
                 const { term } = agentTerminals[selectedAgentId];
                 
                 const touchY = e.touches[0].clientY;
-                const deltaY = touchStartY - touchY;
-                
-                if (Math.abs(deltaY) > 5) {
-                    // Prevent default browser behavior (like pull-to-refresh)
-                    e.preventDefault();
-                    
-                    // Simulate wheel event for xterm.js
-                    // xterm.js 5.x listens for 'wheel' events on its viewport
-                    const event = new WheelEvent('wheel', {
-                        deltaY: deltaY * 3, // Increased multiplier for better feel
-                        deltaMode: 0,
-                        bubbles: true,
-                        cancelable: true
-                    });
-                    
-                    // Dispatch to viewport if possible, otherwise the root element
-                    const target = term.element ? (term.element.querySelector('.xterm-viewport') || term.element) : null;
-                    if (target) {
-                        target.dispatchEvent(event);
-                    }
-                    
-                    touchStartY = touchY;
+                const deltaY = touchLastY - touchY;
+
+                // Keep the browser from treating the gesture as page scrolling
+                // or pull-to-refresh. xterm owns scrolling inside this region.
+                e.preventDefault();
+
+                const rowsElement = term.element?.querySelector('.xterm-rows');
+                const rowHeight = rowsElement && term.rows
+                    ? rowsElement.getBoundingClientRect().height / term.rows
+                    : 18;
+
+                // Convert physical pixels to terminal rows. This preserves the
+                // actual finger distance and avoids synthetic WheelEvent timing
+                // differences between mobile browsers.
+                touchRemainder += deltaY / rowHeight;
+                const lines = Math.trunc(touchRemainder);
+
+                if (lines !== 0) {
+                    // A finger moving up should reveal earlier terminal output.
+                    term.scrollLines(-lines);
+                    touchRemainder -= lines;
                 }
+
+                touchLastY = touchY;
             }, { passive: false });
             
             // Also handle click to focus
