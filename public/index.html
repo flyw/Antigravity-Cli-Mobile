@@ -464,13 +464,13 @@
             min-height: 0;
             position: relative;
             overflow: hidden; /* xterm.js handles its own scrolling */
-            touch-action: auto;
+            touch-action: none;
             overscroll-behavior: none;
         }
         #terminal-container {
             width: 100%;
             height: 100%;
-            touch-action: pan-y;
+            touch-action: none;
             overscroll-behavior: contain;
         }
         .message { display: none !important; }
@@ -1375,6 +1375,21 @@
             const fitAddon = new FitAddon.FitAddon();
             term.loadAddon(fitAddon);
 
+            // Keep wheel input in xterm's scrollback buffer. Returning false
+            // prevents xterm from forwarding the wheel as PTY input when the
+            // running shell/application has mouse reporting enabled.
+            term.attachCustomWheelEventHandler((event) => {
+                if (!event.deltaY) return true;
+
+                const lines = event.deltaMode === 1
+                    ? Math.max(1, Math.round(Math.abs(event.deltaY)))
+                    : Math.max(1, Math.round(Math.abs(event.deltaY) / 20));
+
+                term.scrollLines(event.deltaY > 0 ? lines : -lines);
+                event.preventDefault();
+                return false;
+            });
+
             if (socket) {
                 term.onData(data => {
                     socket.emit('input_cmd', { agentId, cmd: data });
@@ -1397,6 +1412,56 @@
                 termContainer.hasMouseListener = true;
             }
 
+            const term = selectedAgentId && agentTerminals[selectedAgentId]?.term;
+            const terminalElement = term?.element;
+            if (!term || !terminalElement || terminalElement.hasTouchScrollListener) return;
+
+            let touchLastY = 0;
+            let touchRemainder = 0;
+
+            // Capture before xterm's hidden textarea and convert the gesture
+            // into buffer-row scrolling. This avoids browser/input-history
+            // handling while keeping the terminal's real row/column geometry.
+            terminalElement.addEventListener('touchstart', (event) => {
+                if (event.touches.length !== 1) return;
+                touchLastY = event.touches[0].clientY;
+                touchRemainder = 0;
+                event.stopPropagation();
+            }, { capture: true, passive: true });
+
+            terminalElement.addEventListener('touchmove', (event) => {
+                if (event.touches.length !== 1) return;
+
+                const touchY = event.touches[0].clientY;
+                const deltaY = touchLastY - touchY;
+                const rowsElement = terminalElement.querySelector('.xterm-rows');
+                const rowHeight = rowsElement && term.rows
+                    ? rowsElement.getBoundingClientRect().height / term.rows
+                    : 18;
+
+                touchRemainder += deltaY / rowHeight;
+                const lines = Math.trunc(touchRemainder);
+
+                event.preventDefault();
+                event.stopPropagation();
+
+                if (lines !== 0) {
+                    term.scrollLines(lines);
+                    touchRemainder -= lines;
+                }
+
+                touchLastY = touchY;
+            }, { capture: true, passive: false });
+
+            terminalElement.addEventListener('touchend', (event) => {
+                event.stopPropagation();
+            }, { capture: true, passive: true });
+
+            terminalElement.addEventListener('touchcancel', (event) => {
+                event.stopPropagation();
+            }, { capture: true, passive: true });
+
+            terminalElement.hasTouchScrollListener = true;
         }
 
         function showToast(message) {
