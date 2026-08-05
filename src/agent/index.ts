@@ -7,6 +7,8 @@ import * as os from 'os';
 import * as fs from 'fs';
 import * as path from 'path';
 import { logger, getLogPath } from '../utils/logger';
+import { listSkills } from './skills';
+import { SkillRoot } from '../types';
 
 const getLocalIp = () => {
   const interfaces = os.networkInterfaces();
@@ -86,6 +88,41 @@ export const runAgent = (config: Config, command: string, args: string[], sessio
       cwd: cwd,
       ip: ip,
       hostname: hostname
+    }
+  });
+
+  const skillRoots: Record<SkillRoot, string> = {
+    codex: path.join(os.homedir(), '.codex', 'skills'),
+    agents: path.join(os.homedir(), '.agents', 'skills')
+  };
+
+  socket.on('skills_list_request', (payload: { requestId: string; root: SkillRoot }) => {
+    const rootDir = skillRoots[payload.root];
+    if (!payload.requestId || !rootDir) {
+      socket.emit('skills_list_response', {
+        requestId: payload.requestId,
+        agentId,
+        skills: [],
+        error: 'Unsupported skills path'
+      });
+      return;
+    }
+
+    try {
+      socket.emit('skills_list_response', {
+        requestId: payload.requestId,
+        agentId,
+        root: payload.root,
+        skills: listSkills(rootDir)
+      });
+    } catch (error: any) {
+      socket.emit('skills_list_response', {
+        requestId: payload.requestId,
+        agentId,
+        root: payload.root,
+        skills: [],
+        error: error.message || 'Failed to read skills'
+      });
     }
   });
 

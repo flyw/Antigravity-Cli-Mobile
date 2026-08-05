@@ -31,3 +31,5 @@ export interface AgentInfo {
   ip?: string;
   hostname?: string;
 }
+
+export type SkillRoot = 'codex' | 'agents';

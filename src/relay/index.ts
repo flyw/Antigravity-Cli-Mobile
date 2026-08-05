@@ -96,6 +96,7 @@ export const runRelay = (config: Config) => {
 
   const agents = new Map<string, { socket: Socket; info: AgentInfo; converter: Convert }>();
   const histories = new Map<string, string[]>();
+  const skillRequests = new Map<string, { socket: Socket; agentId: string }>();
 
   const broadcastAgents = () => {
     const agentList = Array.from(agents.values()).map(a => a.info);
@@ -163,9 +164,20 @@ export const runRelay = (config: Config) => {
         io.emit('upload_res', payload);
       });
 
+      socket.on('skills_list_response', (payload) => {
+        const request = skillRequests.get(String(payload?.requestId || ''));
+        if (request && request.agentId === agentId) {
+          skillRequests.delete(String(payload.requestId));
+          request.socket.emit('skills_list_response', payload);
+        }
+      });
+
       socket.on('disconnect', () => {
         console.log(`Agent disconnected: ${agentId}`);
         agents.delete(agentId);
+        for (const [requestId, request] of skillRequests) {
+          if (request.agentId === agentId) skillRequests.delete(requestId);
+        }
         broadcastAgents();
       });
     } else {
@@ -215,6 +227,40 @@ export const runRelay = (config: Config) => {
           agent.socket.emit('file_upload', payload);
         } else {
           socket.emit('error', 'Agent not connected or not alive');
+        }
+      });
+
+      socket.on('skills_list_request', (payload: { agentId: string, requestId: string, root: 'codex' | 'agents' }) => {
+        if (!payload?.agentId || !payload.requestId || !['codex', 'agents'].includes(payload.root)) {
+          socket.emit('skills_list_response', {
+            requestId: payload?.requestId,
+            agentId: payload?.agentId,
+            skills: [],
+            error: 'Invalid skills request'
+          });
+          return;
+        }
+        const targetId = String(payload.agentId);
+        const agent = agents.get(targetId);
+        if (agent && agent.info.status === 'alive') {
+          skillRequests.set(payload.requestId, { socket, agentId: targetId });
+          agent.socket.emit('skills_list_request', {
+            requestId: payload.requestId,
+            root: payload.root
+          });
+        } else {
+          socket.emit('skills_list_response', {
+            requestId: payload.requestId,
+            agentId: targetId,
+            skills: [],
+            error: 'Agent not connected or not alive'
+          });
+        }
+      });
+
+      socket.on('disconnect', () => {
+        for (const [requestId, request] of skillRequests) {
+          if (request.socket === socket) skillRequests.delete(requestId);
         }
       });
     }

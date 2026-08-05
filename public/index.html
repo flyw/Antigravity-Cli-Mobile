@@ -506,7 +506,53 @@
             display: flex;
             gap: 10px;
             align-items: flex-end;
+            position: relative;
         }
+        #input-actions-menu {
+            display: none;
+            position: absolute;
+            left: 0;
+            bottom: 48px;
+            background: var(--card-bg);
+            border: 1px solid var(--border-color);
+            border-radius: 10px;
+            box-shadow: 0 4px 14px rgba(0,0,0,0.2);
+            padding: 6px;
+            z-index: 20;
+            min-width: 140px;
+        }
+        .input-action-item {
+            display: block;
+            width: 100%;
+            padding: 9px 12px;
+            border: 0;
+            border-radius: 7px;
+            background: transparent;
+            color: var(--text-color);
+            text-align: left;
+            cursor: pointer;
+        }
+        .input-action-item:hover { background: var(--bg-color); }
+        .skills-list {
+            max-height: 50vh;
+            overflow-y: auto;
+            margin-top: 12px;
+        }
+        .skill-item {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin-bottom: 6px;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            text-align: left;
+            cursor: pointer;
+        }
+        .skill-item:hover { border-color: var(--message-user-bg); }
+        .skill-item-name { font-weight: 600; }
+        .skill-item-description { display: block; margin-top: 4px; font-size: 11px; color: #888; }
         #message-input {
             flex: 1;
             padding: 10px 15px;
@@ -702,6 +748,10 @@
                         <span class="item-icon">⌨️</span>
                         <span>Shortcuts</span>
                     </div>
+                    <div class="sidebar-item" id="skills-settings-btn">
+                        <span class="item-icon">🧩</span>
+                        <span>Skills Path</span>
+                    </div>
                     <button id="logout-btn">
                         <span class="item-icon">🚪</span>
                         <span>Logout</span>
@@ -765,6 +815,36 @@
                 </div>
             </div>
 
+            <div id="skills-settings-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+                <div class="modal-content" style="width: 90%; max-width: 500px;">
+                    <h3>Remote Skills Path</h3>
+                    <p style="font-size: 12px; color: #888;">Choose the skills directory on the selected client.</p>
+                    <select id="skills-settings-root" style="width: 100%; padding: 10px; margin: 10px 0; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px;">
+                        <option value="codex">~/.codex/skills</option>
+                        <option value="agents">~/.agents/skills</option>
+                    </select>
+                    <div style="display: flex; gap: 10px; margin-top: 20px;">
+                        <button class="modal-close" id="skills-settings-save" style="flex: 1;">Save</button>
+                        <button class="modal-close" id="skills-settings-cancel" style="flex: 1; background: #666;">Cancel</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="skills-picker-modal" class="modal-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 2000; align-items: center; justify-content: center;">
+                <div class="modal-content" style="width: 90%; max-width: 500px;">
+                    <h3>Select a Skill</h3>
+                    <div style="display: flex; gap: 8px;">
+                        <select id="skills-picker-root" style="flex: 1; padding: 10px; background: var(--input-bg); color: var(--text-color); border: 1px solid var(--border-color); border-radius: 6px;">
+                            <option value="codex">~/.codex/skills</option>
+                            <option value="agents">~/.agents/skills</option>
+                        </select>
+                        <button class="control-btn" id="skills-refresh">Refresh</button>
+                    </div>
+                    <div id="skills-list" class="skills-list"><div style="color: #888;">Choose a path to load skills.</div></div>
+                    <button class="modal-close" id="skills-picker-cancel" style="background: #666; margin-top: 12px;">Cancel</button>
+                </div>
+            </div>
+
             <div id="chat-container">
                 <div id="terminal-container"></div>
             </div>
@@ -773,6 +853,10 @@
                     <!-- Shortcuts will be rendered dynamically -->
                 </div>
                 <div id="input-main-row">
+                    <div id="input-actions-menu">
+                        <button type="button" class="input-action-item" id="choose-image">🖼️ Image</button>
+                        <button type="button" class="input-action-item" id="choose-skill">🧩 Skill</button>
+                    </div>
                     <button type="button" id="upload-btn">+</button>
                     <textarea id="message-input" placeholder="Type a command..." autocomplete="off" rows="1"></textarea>
                     <button type="submit" id="send-button">Send</button>
@@ -817,6 +901,11 @@
         const shortcutsSave = document.getElementById('shortcuts-save');
         const shortcutsCancel = document.getElementById('shortcuts-cancel');
         const shortcutsEditorList = document.getElementById('shortcuts-editor-list');
+        const skillsSettingsBtn = document.getElementById('skills-settings-btn');
+        const skillsSettingsModal = document.getElementById('skills-settings-modal');
+        const skillsSettingsRoot = document.getElementById('skills-settings-root');
+        const skillsSettingsSave = document.getElementById('skills-settings-save');
+        const skillsSettingsCancel = document.getElementById('skills-settings-cancel');
 
         // Sidebar Toggle Logic
         menuToggle.onclick = (e) => {
@@ -892,6 +981,9 @@
         const agentListEl = document.getElementById('agent-list');
 
         const uploadBtn = document.getElementById('upload-btn');
+        const inputActionsMenu = document.getElementById('input-actions-menu');
+        const chooseImage = document.getElementById('choose-image');
+        const chooseSkill = document.getElementById('choose-skill');
         const uploadModal = document.getElementById('upload-modal');
         const uploadCancel = document.getElementById('upload-cancel');
         const uploadSubmit = document.getElementById('upload-submit');
@@ -899,8 +991,140 @@
         const pasteArea = document.getElementById('paste-area');
         const fileInput = document.getElementById('file-input');
         const toastContainer = document.getElementById('toast-container');
+        const skillsPickerModal = document.getElementById('skills-picker-modal');
+        const skillsPickerRoot = document.getElementById('skills-picker-root');
+        const skillsRefresh = document.getElementById('skills-refresh');
+        const skillsListEl = document.getElementById('skills-list');
+        const skillsPickerCancel = document.getElementById('skills-picker-cancel');
 
         let editingShortcuts = [];
+        let latestSkillRequestId = null;
+
+        const skillRootLabels = {
+            codex: '~/.codex/skills',
+            agents: '~/.agents/skills'
+        };
+
+        const getSkillRoot = (agentId) => {
+            return agentId ? localStorage.getItem(`skill_root_${agentId}`) || 'codex' : 'codex';
+        };
+
+        const saveSkillRoot = (agentId, root) => {
+            if (agentId) localStorage.setItem(`skill_root_${agentId}`, root);
+        };
+
+        const closeInputActions = () => {
+            inputActionsMenu.style.display = 'none';
+        };
+
+        uploadBtn.onclick = (event) => {
+            event.stopPropagation();
+            inputActionsMenu.style.display = inputActionsMenu.style.display === 'block' ? 'none' : 'block';
+        };
+
+        chooseImage.onclick = () => {
+            closeInputActions();
+            uploadModal.style.display = 'flex';
+            pasteArea.focus();
+        };
+
+        chooseSkill.onclick = () => {
+            closeInputActions();
+            if (!selectedAgentId) {
+                showToast('Please select a client first');
+                return;
+            }
+            skillsPickerRoot.value = getSkillRoot(selectedAgentId);
+            skillsPickerModal.style.display = 'flex';
+            requestSkills();
+        };
+
+        skillsSettingsBtn.onclick = () => {
+            if (!selectedAgentId) {
+                showToast('Please select a client first');
+                return;
+            }
+            skillsSettingsRoot.value = getSkillRoot(selectedAgentId);
+            skillsSettingsModal.style.display = 'flex';
+            if (window.innerWidth <= 768) sidebar.classList.remove('open');
+        };
+
+        skillsSettingsSave.onclick = () => {
+            saveSkillRoot(selectedAgentId, skillsSettingsRoot.value);
+            skillsSettingsModal.style.display = 'none';
+            showToast(`Skills path saved: ${skillRootLabels[skillsSettingsRoot.value]}`);
+        };
+
+        skillsSettingsCancel.onclick = () => {
+            skillsSettingsModal.style.display = 'none';
+        };
+
+        skillsPickerCancel.onclick = () => {
+            skillsPickerModal.style.display = 'none';
+        };
+
+        skillsPickerRoot.onchange = () => {
+            saveSkillRoot(selectedAgentId, skillsPickerRoot.value);
+            requestSkills();
+        };
+
+        skillsRefresh.onclick = () => requestSkills();
+
+        document.addEventListener('click', (event) => {
+            if (!inputActionsMenu.contains(event.target) && event.target !== uploadBtn) {
+                closeInputActions();
+            }
+        });
+
+        const requestSkills = () => {
+            if (!socket || !selectedAgentId) return;
+            const requestId = `skills-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+            latestSkillRequestId = requestId;
+            skillsListEl.innerHTML = '<div style="color: #888;">Loading skills...</div>';
+            socket.emit('skills_list_request', {
+                requestId,
+                agentId: selectedAgentId,
+                root: skillsPickerRoot.value
+            });
+        };
+
+        const renderSkills = (skills, error) => {
+            if (error) {
+                skillsListEl.innerHTML = '';
+                const errorEl = document.createElement('div');
+                errorEl.style.color = '#ff4d4f';
+                errorEl.textContent = error;
+                skillsListEl.appendChild(errorEl);
+                return;
+            }
+            if (!skills.length) {
+                skillsListEl.innerHTML = '<div style="color: #888;">No skills found in this path.</div>';
+                return;
+            }
+            skillsListEl.innerHTML = '';
+            skills.forEach(skill => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'skill-item';
+                const nameEl = document.createElement('span');
+                nameEl.className = 'skill-item-name';
+                nameEl.textContent = `$${skill.id}`;
+                const descriptionEl = document.createElement('span');
+                descriptionEl.className = 'skill-item-description';
+                descriptionEl.textContent = skill.description || 'No description';
+                button.append(nameEl, descriptionEl);
+                button.onclick = () => {
+                    const prefix = `$${skill.id}`;
+                    const current = messageInput.value.trimStart();
+                    messageInput.value = current.startsWith(prefix) ? current : `${prefix}${current ? ` ${current}` : ' '}`;
+                    messageInput.focus();
+                    messageInput.setSelectionRange(messageInput.value.length, messageInput.value.length);
+                    messageInput.dispatchEvent(new Event('input'));
+                    skillsPickerModal.style.display = 'none';
+                };
+                skillsListEl.appendChild(button);
+            });
+        };
 
         shortcutsBtn.onclick = () => {
             editingShortcuts = JSON.parse(JSON.stringify(shortcutsData));
@@ -1239,6 +1463,11 @@
 
             socket = io({ auth: { token: token } });
 
+            socket.on('skills_list_response', (data) => {
+                if (data.agentId !== selectedAgentId || data.requestId !== latestSkillRequestId) return;
+                renderSkills(data.skills || [], data.error);
+            });
+
             socket.on('connect', () => {
                 statusEl.textContent = 'Connected';
                 statusEl.style.color = 'green';
@@ -1482,11 +1711,6 @@
             };
 
             // Upload Logic
-            uploadBtn.onclick = () => {
-                uploadModal.style.display = 'flex';
-                pasteArea.focus();
-            };
-
             uploadCancel.onclick = () => {
                 uploadModal.style.display = 'none';
                 currentFile = null;

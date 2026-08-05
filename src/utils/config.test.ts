@@ -1,15 +1,23 @@
-import { getConfig } from './config';
+import * as fs from 'fs';
+import * as os from 'os';
+import * as path from 'path';
+
+const originalEnv = { ...process.env };
+const testHome = fs.mkdtempSync(path.join(os.tmpdir(), 'agent-cli-mobile-config-'));
+jest.doMock('./env', () => ({
+  getEnvPath: () => path.join(testHome, '.env')
+}));
+const { getConfig } = require('./config');
 
 describe('getConfig', () => {
-  const originalEnv = process.env;
-
   beforeEach(() => {
     jest.resetModules();
-    process.env = { ...originalEnv };
+    process.env = { ...originalEnv, HOME: testHome };
   });
 
   afterAll(() => {
     process.env = originalEnv;
+    fs.rmSync(testHome, { recursive: true, force: true });
   });
 
   it('should return default values when env vars are not set', () => {
