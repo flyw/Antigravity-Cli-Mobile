@@ -1373,7 +1373,7 @@
             const term = new Terminal(terminalOptions);
             const fitAddon = new FitAddon.FitAddon();
             term.loadAddon(fitAddon);
-            
+
             if (socket) {
                 term.onData(data => {
                     socket.emit('input_cmd', { agentId, cmd: data });
@@ -1397,22 +1397,37 @@
             }
 
             const term = selectedAgentId && agentTerminals[selectedAgentId]?.term;
-            const viewport = term?.element?.querySelector('.xterm-viewport');
-            if (!viewport || viewport.hasTouchScrollListener) return;
+            const terminalElement = term?.element;
+            const viewport = terminalElement?.querySelector('.xterm-viewport');
+            if (!terminalElement || !viewport || terminalElement.hasTouchScrollListener) return;
+
+            // xterm 5.x does not expose attachCustomWheelEventHandler in the
+            // CDN build used by this page. Capture wheel events at the root so
+            // they cannot reach the hidden input element or the PTY.
+            terminalElement.addEventListener('wheel', (e) => {
+                const lineHeight = 18;
+                const deltaY = e.deltaMode === 1
+                    ? e.deltaY * lineHeight
+                    : e.deltaMode === 2
+                        ? e.deltaY * term.rows * lineHeight
+                        : e.deltaY;
+
+                e.preventDefault();
+                e.stopPropagation();
+                viewport.scrollTop += deltaY;
+            }, { capture: true, passive: false });
 
             let touchLastY = 0;
 
-            // xterm has an input textarea inside the terminal. Capture the
-            // gesture on the viewport and stop it before it reaches that input
-            // layer, otherwise mobile browsers can interpret a swipe as input
-            // history navigation.
-            viewport.addEventListener('touchstart', (e) => {
+            // Capture at the xterm root so this also works when the touch lands
+            // on the screen or hidden textarea rather than the viewport node.
+            terminalElement.addEventListener('touchstart', (e) => {
                 if (e.touches.length !== 1) return;
                 touchLastY = e.touches[0].clientY;
                 e.stopPropagation();
             }, { capture: true, passive: true });
 
-            viewport.addEventListener('touchmove', (e) => {
+            terminalElement.addEventListener('touchmove', (e) => {
                 if (e.touches.length !== 1) return;
 
                 const touchY = e.touches[0].clientY;
@@ -1424,11 +1439,11 @@
                 touchLastY = touchY;
             }, { capture: true, passive: false });
 
-            viewport.addEventListener('touchend', (e) => {
+            terminalElement.addEventListener('touchend', (e) => {
                 e.stopPropagation();
             }, { capture: true, passive: true });
 
-            viewport.hasTouchScrollListener = true;
+            terminalElement.hasTouchScrollListener = true;
         }
 
         function showToast(message) {
