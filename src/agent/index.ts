@@ -188,14 +188,14 @@ export const runAgent = (config: Config, command: string, args: string[], sessio
     process.exit(1);
   }
 
-  // Disable mouse support if using tmux to prevent Ctrl+C copy-paste hijacking
+  // Enable mouse support for this tmux session. The web terminal runs inside
+  // tmux's alternate screen buffer, so tmux must handle wheel events and enter
+  // copy mode; xterm's normal scrollback buffer is not available there.
   if (command === 'tmux' && sessionName) {
     setTimeout(() => {
       try {
-        // Disable mouse support for the specific session and also globally
-        spawn('tmux', ['set-option', '-t', sessionName, 'mouse', 'off']);
-        spawn('tmux', ['set-option', '-g', 'mouse', 'off']);
-        console.log(`Disabled mouse support for tmux session: ${sessionName}`);
+        spawn('tmux', ['set-option', '-t', sessionName, 'mouse', 'on']);
+        console.log(`Enabled mouse support for tmux session: ${sessionName}`);
       } catch (e) {}
     }, 2000);
   }

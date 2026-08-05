@@ -1375,21 +1375,6 @@
             const fitAddon = new FitAddon.FitAddon();
             term.loadAddon(fitAddon);
 
-            // Keep wheel input in xterm's scrollback buffer. Returning false
-            // prevents xterm from forwarding the wheel as PTY input when the
-            // running shell/application has mouse reporting enabled.
-            term.attachCustomWheelEventHandler((event) => {
-                if (!event.deltaY) return true;
-
-                const lines = event.deltaMode === 1
-                    ? Math.max(1, Math.round(Math.abs(event.deltaY)))
-                    : Math.max(1, Math.round(Math.abs(event.deltaY) / 20));
-
-                term.scrollLines(event.deltaY > 0 ? lines : -lines);
-                event.preventDefault();
-                return false;
-            });
-
             if (socket) {
                 term.onData(data => {
                     socket.emit('input_cmd', { agentId, cmd: data });
@@ -1417,15 +1402,15 @@
             if (!term || !terminalElement || terminalElement.hasTouchScrollListener) return;
 
             let touchLastY = 0;
-            let touchRemainder = 0;
+            let touchRemainderPixels = 0;
 
-            // Capture before xterm's hidden textarea and convert the gesture
-            // into buffer-row scrolling. This avoids browser/input-history
-            // handling while keeping the terminal's real row/column geometry.
+            // Capture before xterm's hidden textarea and convert touch movement
+            // into wheel events. In tmux's alternate buffer, xterm forwards
+            // these as mouse reports so tmux can scroll its pane history.
             terminalElement.addEventListener('touchstart', (event) => {
                 if (event.touches.length !== 1) return;
                 touchLastY = event.touches[0].clientY;
-                touchRemainder = 0;
+                touchRemainderPixels = 0;
                 event.stopPropagation();
             }, { capture: true, passive: true });
 
@@ -1439,15 +1424,24 @@
                     ? rowsElement.getBoundingClientRect().height / term.rows
                     : 18;
 
-                touchRemainder += deltaY / rowHeight;
-                const lines = Math.trunc(touchRemainder);
+                touchRemainderPixels += deltaY;
 
                 event.preventDefault();
                 event.stopPropagation();
 
-                if (lines !== 0) {
-                    term.scrollLines(lines);
-                    touchRemainder -= lines;
+                if (Math.abs(touchRemainderPixels) >= rowHeight) {
+                    const wheelTarget = terminalElement.querySelector('.xterm-scrollable-element');
+                    const touch = event.touches[0];
+
+                    wheelTarget?.dispatchEvent(new WheelEvent('wheel', {
+                        deltaY: touchRemainderPixels,
+                        deltaMode: WheelEvent.DOM_DELTA_PIXEL,
+                        clientX: touch.clientX,
+                        clientY: touch.clientY,
+                        bubbles: true,
+                        cancelable: true
+                    }));
+                    touchRemainderPixels = 0;
                 }
 
                 touchLastY = touchY;
