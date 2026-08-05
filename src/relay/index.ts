@@ -97,6 +97,7 @@ export const runRelay = (config: Config) => {
   const agents = new Map<string, { socket: Socket; info: AgentInfo; converter: Convert }>();
   const histories = new Map<string, string[]>();
   const skillRequests = new Map<string, { socket: Socket; agentId: string }>();
+  const terminalHistoryRequests = new Map<string, { socket: Socket; agentId: string; timeout: NodeJS.Timeout }>();
 
   const broadcastAgents = () => {
     const agentList = Array.from(agents.values()).map(a => a.info);
@@ -164,6 +165,16 @@ export const runRelay = (config: Config) => {
         io.emit('upload_res', payload);
       });
 
+      socket.on('terminal_history_response', (payload: { agentId: string; requestId: string; history: string; error?: string }) => {
+        const requestId = String(payload?.requestId || '');
+        const request = terminalHistoryRequests.get(requestId);
+        if (request && request.agentId === agentId) {
+          clearTimeout(request.timeout);
+          terminalHistoryRequests.delete(requestId);
+          request.socket.emit('terminal_history_response', payload);
+        }
+      });
+
       socket.on('skills_list_response', (payload) => {
         const request = skillRequests.get(String(payload?.requestId || ''));
         if (request && request.agentId === agentId) {
@@ -177,6 +188,18 @@ export const runRelay = (config: Config) => {
         agents.delete(agentId);
         for (const [requestId, request] of skillRequests) {
           if (request.agentId === agentId) skillRequests.delete(requestId);
+        }
+        for (const [requestId, request] of terminalHistoryRequests) {
+          if (request.agentId === agentId) {
+            clearTimeout(request.timeout);
+            request.socket.emit('terminal_history_response', {
+              agentId,
+              requestId,
+              history: '',
+              error: 'Agent disconnected while loading terminal history'
+            });
+            terminalHistoryRequests.delete(requestId);
+          }
         }
         broadcastAgents();
       });
@@ -220,6 +243,43 @@ export const runRelay = (config: Config) => {
         }
       });
 
+      socket.on('terminal_history_request', (payload: { agentId: string; requestId: string; lines?: number }) => {
+        const targetId = String(payload?.agentId || '');
+        const requestId = String(payload?.requestId || '');
+        const agent = agents.get(targetId);
+
+        if (!targetId || !requestId || !agent || agent.info.status !== 'alive') {
+          socket.emit('terminal_history_response', {
+            agentId: targetId,
+            requestId,
+            history: '',
+            error: 'Agent not connected or not alive'
+          });
+          return;
+        }
+
+        const previous = terminalHistoryRequests.get(requestId);
+        if (previous) clearTimeout(previous.timeout);
+
+        const timeout = setTimeout(() => {
+          const request = terminalHistoryRequests.get(requestId);
+          if (!request) return;
+          terminalHistoryRequests.delete(requestId);
+          request.socket.emit('terminal_history_response', {
+            agentId: targetId,
+            requestId,
+            history: '',
+            error: 'Timed out while loading terminal history'
+          });
+        }, 15000);
+
+        terminalHistoryRequests.set(requestId, { socket, agentId: targetId, timeout });
+        agent.socket.emit('terminal_history_request', {
+          requestId,
+          lines: payload?.lines
+        });
+      });
+
       socket.on('file_upload', (payload: { agentId: string, filename: string, data: ArrayBuffer | Buffer, target?: string }) => {
         const targetId = String(payload.agentId);
         const agent = agents.get(targetId);
@@ -261,6 +321,12 @@ export const runRelay = (config: Config) => {
       socket.on('disconnect', () => {
         for (const [requestId, request] of skillRequests) {
           if (request.socket === socket) skillRequests.delete(requestId);
+        }
+        for (const [requestId, request] of terminalHistoryRequests) {
+          if (request.socket === socket) {
+            clearTimeout(request.timeout);
+            terminalHistoryRequests.delete(requestId);
+          }
         }
       });
     }

@@ -188,14 +188,14 @@ export const runAgent = (config: Config, command: string, args: string[], sessio
     process.exit(1);
   }
 
-  // Enable mouse support for this tmux session. The web terminal runs inside
-  // tmux's alternate screen buffer, so tmux must handle wheel events and enter
-  // copy mode; xterm's normal scrollback buffer is not available there.
+  // Keep mouse reporting disabled for the interactive PTY. Historical output
+  // is exposed separately via capture-pane, so wheel gestures never need to be
+  // forwarded into the shell/application as input.
   if (command === 'tmux' && sessionName) {
     setTimeout(() => {
       try {
-        spawn('tmux', ['set-option', '-t', sessionName, 'mouse', 'on']);
-        console.log(`Enabled mouse support for tmux session: ${sessionName}`);
+        spawn('tmux', ['set-option', '-t', sessionName, 'mouse', 'off']);
+        console.log(`Disabled mouse support for tmux session: ${sessionName}`);
       } catch (e) {}
     }, 2000);
   }
@@ -240,6 +240,59 @@ export const runAgent = (config: Config, command: string, args: string[], sessio
     } catch (e) {
       logger.error('Failed to resize PTY:', e);
     }
+  });
+
+  socket.on('terminal_history_request', (payload: { requestId: string; lines?: number }) => {
+    const requestId = String(payload?.requestId || '');
+    if (!requestId) return;
+
+    if (command !== 'tmux' || !sessionName) {
+      socket.emit('terminal_history_response', {
+        agentId,
+        requestId,
+        history: '',
+        error: 'Terminal history is only available for tmux sessions'
+      });
+      return;
+    }
+
+    const requestedLines = Number(payload?.lines || 10000);
+    const lines = Math.min(20000, Math.max(100, Number.isFinite(requestedLines) ? Math.floor(requestedLines) : 10000));
+    const capture = spawn('tmux', ['capture-pane', '-p', '-J', '-S', `-${lines}`, '-t', sessionName]);
+    const stdout: Buffer[] = [];
+    const stderr: Buffer[] = [];
+    let outputBytes = 0;
+    let responseSent = false;
+    const maxOutputBytes = 2 * 1024 * 1024;
+
+    capture.stdout.on('data', (chunk: Buffer) => {
+      if (outputBytes >= maxOutputBytes) return;
+      const remaining = maxOutputBytes - outputBytes;
+      const data = chunk.length > remaining ? chunk.subarray(0, remaining) : chunk;
+      stdout.push(data);
+      outputBytes += data.length;
+    });
+    capture.stderr.on('data', (chunk: Buffer) => stderr.push(chunk));
+    capture.on('error', (error) => {
+      if (responseSent) return;
+      responseSent = true;
+      socket.emit('terminal_history_response', {
+        agentId,
+        requestId,
+        history: '',
+        error: error.message
+      });
+    });
+    capture.on('close', (code) => {
+      if (responseSent) return;
+      responseSent = true;
+      socket.emit('terminal_history_response', {
+        agentId,
+        requestId,
+        history: Buffer.concat(stdout).toString('utf8'),
+        error: code === 0 ? undefined : Buffer.concat(stderr).toString('utf8').trim() || `tmux capture-pane exited with code ${code}`
+      });
+    });
   });
 
   socket.on('file_upload', (payload: { filename: string, data: Buffer, target?: string }) => {
