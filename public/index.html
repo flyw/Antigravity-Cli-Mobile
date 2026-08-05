@@ -1392,7 +1392,6 @@
                 viewport.scrollTop += deltaY;
                 return false;
             });
-
             if (socket) {
                 term.onData(data => {
                     socket.emit('input_cmd', { agentId, cmd: data });
