@@ -52,4 +52,19 @@ describe('listSkills', () => {
 
     expect(listSkills(rootDir)).toEqual([]);
   });
+
+  it('follows symlinked skill directories', () => {
+    const targetDir = path.join(rootDir, 'linked-target');
+    const linkDir = path.join(rootDir, 'linked-skill');
+    fs.mkdirSync(targetDir);
+    fs.writeFileSync(path.join(targetDir, 'SKILL.md'), '---\nname: linked-skill\n---\n');
+    fs.symlinkSync(targetDir, linkDir, 'dir');
+
+    expect(listSkills(rootDir)).toEqual([
+      expect.objectContaining({
+        id: 'linked-skill',
+        relativePath: 'linked-skill/SKILL.md'
+      })
+    ]);
+  });
 });

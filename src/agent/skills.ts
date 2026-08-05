@@ -35,8 +35,18 @@ export const listSkills = (rootDir: string): RemoteSkill[] => {
   if (!fs.existsSync(rootDir) || !fs.statSync(rootDir).isDirectory()) return [];
 
   const skills: RemoteSkill[] = [];
+  const visitedDirectories = new Set<string>();
   const walk = (currentDir: string, depth: number) => {
     if (depth > MAX_DEPTH) return;
+
+    let realDir: string;
+    try {
+      realDir = fs.realpathSync(currentDir);
+    } catch {
+      return;
+    }
+    if (visitedDirectories.has(realDir)) return;
+    visitedDirectories.add(realDir);
 
     let entries: fs.Dirent[];
     try {
@@ -66,7 +76,15 @@ export const listSkills = (rootDir: string): RemoteSkill[] => {
     }
 
     entries
-      .filter(entry => entry.isDirectory())
+      .filter(entry => {
+        if (entry.isDirectory()) return true;
+        if (!entry.isSymbolicLink()) return false;
+        try {
+          return fs.statSync(path.join(currentDir, entry.name)).isDirectory();
+        } catch {
+          return false;
+        }
+      })
       .sort((a, b) => a.name.localeCompare(b.name))
       .forEach(entry => walk(path.join(currentDir, entry.name), depth + 1));
   };
