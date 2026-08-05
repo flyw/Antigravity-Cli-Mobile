@@ -1362,7 +1362,9 @@
             fontFamily: 'Menlo, Monaco, "Courier New", monospace',
             cursorBlink: true,
             allowProposedApi: true,
-            scrollSensitivity: 1.2
+            scrollback: 10000,
+            scrollSensitivity: 1,
+            scrollOnUserInput: false
         };
 
         function getOrCreateTerminal(agentId, socket) {
@@ -1382,59 +1384,51 @@
             return agentTerminals[agentId];
         }
 
-        // Global touch scroll state
-        let touchStartY = 0;
-
         function initTerminalContainer() {
             const termContainer = document.getElementById('terminal-container');
-            if (termContainer.hasTouchListeners) return;
-            
-            termContainer.addEventListener('touchstart', (e) => {
-                touchStartY = e.touches[0].clientY;
-                // Focus the terminal on touch to ensure it receives wheel events
-                if (selectedAgentId && agentTerminals[selectedAgentId]) {
-                    agentTerminals[selectedAgentId].term.focus();
-                }
-            }, { passive: true });
-
-            termContainer.addEventListener('touchmove', (e) => {
-                if (!selectedAgentId || !agentTerminals[selectedAgentId]) return;
-                const { term } = agentTerminals[selectedAgentId];
-                
-                const touchY = e.touches[0].clientY;
-                const deltaY = touchStartY - touchY;
-                
-                if (Math.abs(deltaY) > 5) {
-                    // Prevent default browser behavior (like pull-to-refresh)
-                    e.preventDefault();
-                    
-                    // Simulate wheel event for xterm.js
-                    // xterm.js 5.x listens for 'wheel' events on its viewport
-                    const event = new WheelEvent('wheel', {
-                        deltaY: deltaY * 3, // Increased multiplier for better feel
-                        deltaMode: 0,
-                        bubbles: true,
-                        cancelable: true
-                    });
-                    
-                    // Dispatch to viewport if possible, otherwise the root element
-                    const target = term.element ? (term.element.querySelector('.xterm-viewport') || term.element) : null;
-                    if (target) {
-                        target.dispatchEvent(event);
-                    }
-                    
-                    touchStartY = touchY;
-                }
-            }, { passive: false });
-            
             // Also handle click to focus
-            termContainer.addEventListener('mousedown', () => {
-                if (selectedAgentId && agentTerminals[selectedAgentId]) {
-                    agentTerminals[selectedAgentId].term.focus();
-                }
-            });
+            if (!termContainer.hasMouseListener) {
+                termContainer.addEventListener('mousedown', () => {
+                    if (selectedAgentId && agentTerminals[selectedAgentId]) {
+                        agentTerminals[selectedAgentId].term.focus();
+                    }
+                });
+                termContainer.hasMouseListener = true;
+            }
 
-            termContainer.hasTouchListeners = true;
+            const term = selectedAgentId && agentTerminals[selectedAgentId]?.term;
+            const viewport = term?.element?.querySelector('.xterm-viewport');
+            if (!viewport || viewport.hasTouchScrollListener) return;
+
+            let touchLastY = 0;
+
+            // xterm has an input textarea inside the terminal. Capture the
+            // gesture on the viewport and stop it before it reaches that input
+            // layer, otherwise mobile browsers can interpret a swipe as input
+            // history navigation.
+            viewport.addEventListener('touchstart', (e) => {
+                if (e.touches.length !== 1) return;
+                touchLastY = e.touches[0].clientY;
+                e.stopPropagation();
+            }, { capture: true, passive: true });
+
+            viewport.addEventListener('touchmove', (e) => {
+                if (e.touches.length !== 1) return;
+
+                const touchY = e.touches[0].clientY;
+                const deltaY = touchLastY - touchY;
+
+                e.preventDefault();
+                e.stopPropagation();
+                viewport.scrollTop += deltaY;
+                touchLastY = touchY;
+            }, { capture: true, passive: false });
+
+            viewport.addEventListener('touchend', (e) => {
+                e.stopPropagation();
+            }, { capture: true, passive: true });
+
+            viewport.hasTouchScrollListener = true;
         }
 
         function showToast(message) {
