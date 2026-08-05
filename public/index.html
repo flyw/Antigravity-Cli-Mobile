@@ -1373,6 +1373,27 @@
             const term = new Terminal(terminalOptions);
             const fitAddon = new FitAddon.FitAddon();
             term.loadAddon(fitAddon);
+
+            // Keep wheel gestures in the display buffer. Without this guard,
+            // xterm can forward wheel input to the PTY when the shell/app has
+            // mouse reporting enabled, which appears as command-history
+            // navigation instead of terminal scrolling.
+            term.attachCustomWheelEventHandler((event) => {
+                const viewport = term.element?.querySelector('.xterm-viewport');
+                if (!viewport) return false;
+
+                const lineHeight = 18;
+                const deltaY = event.deltaMode === 1
+                    ? event.deltaY * lineHeight
+                    : event.deltaMode === 2
+                        ? event.deltaY * term.rows * lineHeight
+                        : event.deltaY;
+
+                event.preventDefault();
+                event.stopPropagation();
+                viewport.scrollTop += deltaY;
+                return false;
+            });
             
             if (socket) {
                 term.onData(data => {
@@ -1397,22 +1418,21 @@
             }
 
             const term = selectedAgentId && agentTerminals[selectedAgentId]?.term;
-            const viewport = term?.element?.querySelector('.xterm-viewport');
-            if (!viewport || viewport.hasTouchScrollListener) return;
+            const terminalElement = term?.element;
+            const viewport = terminalElement?.querySelector('.xterm-viewport');
+            if (!terminalElement || !viewport || terminalElement.hasTouchScrollListener) return;
 
             let touchLastY = 0;
 
-            // xterm has an input textarea inside the terminal. Capture the
-            // gesture on the viewport and stop it before it reaches that input
-            // layer, otherwise mobile browsers can interpret a swipe as input
-            // history navigation.
-            viewport.addEventListener('touchstart', (e) => {
+            // Capture at the xterm root so this also works when the touch lands
+            // on the screen or hidden textarea rather than the viewport node.
+            terminalElement.addEventListener('touchstart', (e) => {
                 if (e.touches.length !== 1) return;
                 touchLastY = e.touches[0].clientY;
                 e.stopPropagation();
             }, { capture: true, passive: true });
 
-            viewport.addEventListener('touchmove', (e) => {
+            terminalElement.addEventListener('touchmove', (e) => {
                 if (e.touches.length !== 1) return;
 
                 const touchY = e.touches[0].clientY;
@@ -1424,11 +1444,11 @@
                 touchLastY = touchY;
             }, { capture: true, passive: false });
 
-            viewport.addEventListener('touchend', (e) => {
+            terminalElement.addEventListener('touchend', (e) => {
                 e.stopPropagation();
             }, { capture: true, passive: true });
 
-            viewport.hasTouchScrollListener = true;
+            terminalElement.hasTouchScrollListener = true;
         }
 
         function showToast(message) {
