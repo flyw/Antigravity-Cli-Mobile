@@ -31,6 +31,18 @@ const readFrontmatter = (content: string) => {
   return values;
 };
 
+const getSkillId = (skillDir: string, realDir: string) => {
+  const isSymlink = fs.lstatSync(skillDir).isSymbolicLink();
+  if (isSymlink) {
+    const segments = realDir.split(path.sep);
+    const skillsIndex = segments.lastIndexOf('skills');
+    if (skillsIndex > 0 && skillsIndex < segments.length - 1) {
+      return `${segments[skillsIndex - 1]}:${path.basename(realDir)}`;
+    }
+  }
+  return path.basename(skillDir);
+};
+
 export const listSkills = (rootDir: string): RemoteSkill[] => {
   if (!fs.existsSync(rootDir) || !fs.statSync(rootDir).isDirectory()) return [];
 
@@ -62,11 +74,11 @@ export const listSkills = (rootDir: string): RemoteSkill[] => {
       if (stats.size > MAX_SKILL_SIZE) return;
       const content = fs.readFileSync(skillPath, 'utf8');
       const metadata = readFrontmatter(content);
-      const directoryName = path.basename(currentDir);
+      const skillId = getSkillId(currentDir, realDir);
       const relativePath = path.relative(rootDir, skillPath).split(path.sep).join('/');
       skills.push({
-        id: directoryName,
-        name: metadata.name || directoryName,
+        id: skillId,
+        name: metadata.name || skillId,
         description: metadata.description || '',
         relativePath,
         updatedAt: stats.mtimeMs,
