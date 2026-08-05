@@ -538,6 +538,28 @@
             overflow-y: auto;
             margin-top: 12px;
         }
+        .skills-tabs {
+            display: flex;
+            gap: 6px;
+            overflow-x: auto;
+            margin-top: 12px;
+            padding-bottom: 2px;
+        }
+        .skill-tab {
+            border: 1px solid var(--border-color);
+            border-radius: 999px;
+            padding: 6px 10px;
+            background: var(--input-bg);
+            color: var(--text-color);
+            cursor: pointer;
+            white-space: nowrap;
+            font-size: 12px;
+        }
+        .skill-tab.active {
+            background: var(--message-user-bg);
+            border-color: var(--message-user-bg);
+            color: #fff;
+        }
         .skill-item {
             display: block;
             width: 100%;
@@ -840,6 +862,7 @@
                         </select>
                         <button class="control-btn" id="skills-refresh">Refresh</button>
                     </div>
+                    <div id="skills-tabs" class="skills-tabs"></div>
                     <div id="skills-list" class="skills-list"><div style="color: #888;">Choose a path to load skills.</div></div>
                     <button class="modal-close" id="skills-picker-cancel" style="background: #666; margin-top: 12px;">Cancel</button>
                 </div>
@@ -994,11 +1017,14 @@
         const skillsPickerModal = document.getElementById('skills-picker-modal');
         const skillsPickerRoot = document.getElementById('skills-picker-root');
         const skillsRefresh = document.getElementById('skills-refresh');
+        const skillsTabsEl = document.getElementById('skills-tabs');
         const skillsListEl = document.getElementById('skills-list');
         const skillsPickerCancel = document.getElementById('skills-picker-cancel');
 
         let editingShortcuts = [];
         let latestSkillRequestId = null;
+        let currentSkills = [];
+        let activeSkillGroup = 'flyw';
 
         const skillRootLabels = {
             codex: '~/.codex/skills',
@@ -1088,19 +1114,40 @@
             });
         };
 
-        const renderSkills = (skills, error) => {
-            if (error) {
-                skillsListEl.innerHTML = '';
-                const errorEl = document.createElement('div');
-                errorEl.style.color = '#ff4d4f';
-                errorEl.textContent = error;
-                skillsListEl.appendChild(errorEl);
-                return;
-            }
-            if (!skills.length) {
-                skillsListEl.innerHTML = '<div style="color: #888;">No skills found in this path.</div>';
-                return;
-            }
+        const skillGroupOrder = [
+            { id: 'flyw', label: 'flyw' },
+            { id: 'matt', label: 'matt' },
+            { id: 'deep-research', label: 'deep-research' },
+            { id: 'system', label: '.system' },
+            { id: 'other', label: 'Other' }
+        ];
+
+        const getSkillGroup = (skill) => {
+            if (skill.id.startsWith('flyw:')) return 'flyw';
+            if (skill.id.startsWith('mattpocock:')) return 'matt';
+            if (skill.id.startsWith('DeepResearch:')) return 'deep-research';
+            if (skill.relativePath.startsWith('.system/')) return 'system';
+            return 'other';
+        };
+
+        const renderSkillTabs = (groups) => {
+            skillsTabsEl.innerHTML = '';
+            skillGroupOrder.forEach(group => {
+                if (!groups[group.id]?.length) return;
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = `skill-tab ${activeSkillGroup === group.id ? 'active' : ''}`;
+                button.textContent = `${group.label} (${groups[group.id].length})`;
+                button.onclick = () => {
+                    activeSkillGroup = group.id;
+                    renderSkillTabs(groups);
+                    renderSkillItems(groups[group.id]);
+                };
+                skillsTabsEl.appendChild(button);
+            });
+        };
+
+        const renderSkillItems = (skills) => {
             skillsListEl.innerHTML = '';
             skills.forEach(skill => {
                 const button = document.createElement('button');
@@ -1124,6 +1171,35 @@
                 };
                 skillsListEl.appendChild(button);
             });
+        };
+
+        const renderSkills = (skills, error) => {
+            if (error) {
+                skillsTabsEl.innerHTML = '';
+                skillsListEl.innerHTML = '';
+                const errorEl = document.createElement('div');
+                errorEl.style.color = '#ff4d4f';
+                errorEl.textContent = error;
+                skillsListEl.appendChild(errorEl);
+                return;
+            }
+            if (!skills.length) {
+                skillsTabsEl.innerHTML = '';
+                skillsListEl.innerHTML = '<div style="color: #888;">No skills found in this path.</div>';
+                return;
+            }
+            currentSkills = skills;
+            const groups = {};
+            skills.forEach(skill => {
+                const group = getSkillGroup(skill);
+                if (!groups[group]) groups[group] = [];
+                groups[group].push(skill);
+            });
+            if (!groups[activeSkillGroup]) {
+                activeSkillGroup = skillGroupOrder.find(group => groups[group.id])?.id || 'other';
+            }
+            renderSkillTabs(groups);
+            renderSkillItems(groups[activeSkillGroup] || currentSkills);
         };
 
         shortcutsBtn.onclick = () => {
