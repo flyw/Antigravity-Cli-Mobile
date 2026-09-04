@@ -225,7 +225,11 @@ export const runAgent = (config: Config, command: string, args: string[], sessio
 
   ptyProcess.onData((data) => {
     socket.emit('output_stream', { agentId, data: data.toString() });
-    process.stdout.write(data);
+    try {
+      process.stdout.write(data);
+    } catch (e) {
+      // Ignore EPIPE or broken stdout stream
+    }
   });
 
   socket.on('input_cmd', (cmd) => {
@@ -235,8 +239,10 @@ export const runAgent = (config: Config, command: string, args: string[], sessio
 
   socket.on('resize_pty', ({ cols, rows }) => {
     try {
-      logger.debug(`Resizing PTY to ${cols}x${rows}`);
-      ptyProcess.resize(cols, rows);
+      const safeCols = Math.max(10, Math.min(500, Number(cols) || 80));
+      const safeRows = Math.max(5, Math.min(200, Number(rows) || 30));
+      logger.debug(`Resizing PTY to ${safeCols}x${safeRows}`);
+      ptyProcess.resize(safeCols, safeRows);
     } catch (e) {
       logger.error('Failed to resize PTY:', e);
     }

@@ -1372,6 +1372,7 @@
         let terminalResizeFrame = null;
         let terminalHistoryRequestId = null;
         let terminalHistoryVisible = false;
+        let terminalHistoryLoaded = {};
 
         function renderShortcuts() {
             const controlsRow = document.getElementById('controls-row');
@@ -1448,7 +1449,7 @@
             allowProposedApi: true,
             scrollback: 10000,
             scrollSensitivity: 1,
-            scrollOnUserInput: false
+            scrollOnUserInput: true
         };
 
         function getOrCreateTerminal(agentId, socket) {
@@ -1587,7 +1588,14 @@
             authScreen.style.display = 'none';
             chatScreen.style.display = 'flex';
 
-            socket = io({ auth: { token: token } });
+            socket = io({
+                auth: { token: token },
+                reconnection: true,
+                reconnectionAttempts: Infinity,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000,
+                timeout: 30000
+            });
 
             function requestTerminalHistory(agentId = selectedAgentId) {
                 if (!agentId) {
@@ -1697,16 +1705,25 @@
                 // Initialize terminals and write history
                 Object.keys(data.history).forEach(id => {
                     const { term } = getOrCreateTerminal(id, socket);
-                    term.reset();
-                    term.write(data.history[id]);
+                    // Only load history on the initial creation to avoid clearing an active terminal during reconnection
+                    if (!terminalHistoryLoaded[id]) {
+                        term.reset();
+                        term.write(data.history[id]);
+                        terminalHistoryLoaded[id] = true;
+                    }
                 });
 
                 renderAgentList();
                 
                 if (agentsData.length > 0) {
-                    const firstAlive = agentsData.find(a => a.status === 'alive');
-                    const targetId = firstAlive ? firstAlive.id : agentsData[0].id;
-                    selectAgent(targetId);
+                    const currentSelected = agentsData.find(a => a.id === selectedAgentId);
+                    if (!currentSelected) {
+                        const firstAlive = agentsData.find(a => a.status === 'alive');
+                        const targetId = firstAlive ? firstAlive.id : agentsData[0].id;
+                        selectAgent(targetId);
+                    } else {
+                        selectAgent(selectedAgentId);
+                    }
                 }
             });
 
@@ -1716,9 +1733,7 @@
                 
                 if (selectedAgentId) {
                     const currentAgent = agents.find(a => a.id === selectedAgentId);
-                    if (currentAgent) {
-                        updateInputState(currentAgent.status);
-                    }
+                    updateInputState(currentAgent ? currentAgent.status : 'disconnected');
                 }
             });
 
@@ -1726,8 +1741,10 @@
                 const termInfo = agentTerminals[agentId];
                 if (termInfo && termInfo.term) {
                     const { cols, rows } = termInfo.term;
-                    console.log(`Syncing resize for ${agentId}: ${cols}x${rows}`);
-                    socket.emit('resize_pty', { agentId, cols, rows });
+                    if (cols >= 10 && rows >= 5) {
+                        console.log(`Syncing resize for ${agentId}: ${cols}x${rows}`);
+                        socket.emit('resize_pty', { agentId, cols, rows });
+                    }
                 }
             }
 
@@ -1739,9 +1756,16 @@
 
                     if (!selectedAgentId || !agentTerminals[selectedAgentId]) return;
 
-                    const { fitAddon } = agentTerminals[selectedAgentId];
-                    fitAddon.fit();
-                    syncResize(selectedAgentId);
+                    const termContainer = document.getElementById('terminal-container');
+                    if (!termContainer || termContainer.clientWidth < 50 || termContainer.clientHeight < 50) return;
+
+                    try {
+                        const { fitAddon } = agentTerminals[selectedAgentId];
+                        fitAddon.fit();
+                        syncResize(selectedAgentId);
+                    } catch (e) {
+                        console.warn('Terminal fit warning:', e);
+                    }
                 });
             }
 
@@ -1806,11 +1830,24 @@
                 renderAgentList();
                 
                 const termContainer = document.getElementById('terminal-container');
-                termContainer.innerHTML = ''; // Clear container
-                
                 const { term, fitAddon } = getOrCreateTerminal(id, socket);
-                term.open(termContainer);
-                fitAddon.fit();
+
+                // Preserve existing terminal element if already created, reattach if needed
+                if (term.element) {
+                    if (term.element.parentElement !== termContainer) {
+                        termContainer.innerHTML = '';
+                        termContainer.appendChild(term.element);
+                    }
+                } else {
+                    termContainer.innerHTML = '';
+                    term.open(termContainer);
+                }
+
+                try {
+                    fitAddon.fit();
+                } catch (e) {
+                    console.warn('Initial fit warning:', e);
+                }
                 term.focus();
 
                 observeTerminalResize();
@@ -1839,6 +1876,8 @@
                     modalCwd.textContent = agent.cwd || '/';
                     modalHost.textContent = agent.hostname || '-';
                     modalIp.textContent = agent.ip || '-';
+                } else {
+                    updateInputState('disconnected');
                 }
             }
 

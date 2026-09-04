@@ -12,7 +12,14 @@ import { hashPassword, verifyPassword } from '../utils/auth';
 export const runRelay = (config: Config) => {
   const app = express();
   const httpServer = createServer(app);
-  const io = new Server(httpServer);
+  const io = new Server(httpServer, {
+    maxHttpBufferSize: 1e8, // 100 MB to prevent socket crash on large output streams
+    pingTimeout: 60000,     // 60 seconds to tolerate mobile tab sleep and heavy output
+    pingInterval: 25000,
+    cors: {
+      origin: '*'
+    }
+  });
   const convert = new Convert();
 
   app.use(express.json());

@@ -24,7 +24,9 @@ const startAgentWithSetup = async (customArgs: string[] = []) => {
 
   const tmuxArgs = ['new-session', '-A', '-s', 'agent-cli-mobile'];
   if (customArgs.length > 0) {
-    tmuxArgs.push(...customArgs);
+    const cmdStr = customArgs.join(' ');
+    const shell = process.env.SHELL || '/bin/bash';
+    tmuxArgs.push(`${cmdStr}; echo "\n[Command finished. Shell remains active]"; exec ${shell}`);
   }
   runAgent(config, 'tmux', tmuxArgs, 'agent-cli-mobile');
 };
